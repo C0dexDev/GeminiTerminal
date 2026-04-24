@@ -10,6 +10,7 @@ import subprocess
 from google import genai
 from PIL import ImageGrab, Image
 from io import BytesIO
+from urllib.parse import unquote
 
 # --- CONFIGURATION FILENAME ---
 CONFIG_FILE = "config.json"
@@ -85,35 +86,68 @@ def get_clipboard_content():
         if isinstance(raw_cb, list):
             for path in raw_cb:
                 if os.path.isfile(path):
-                    ext = path.lower().split('.')[-1]
-                    if ext in ['png', 'jpg', 'jpeg', 'webp', 'bmp']:
-                        items.append(Image.open(path))
-                    else:
-                        with open(path, 'r', encoding='utf-8') as f:
-                            items.append(f"\n[File: {os.path.basename(path)}]\n{f.read()}\n")
+                    items.extend(read_file_safe(path))
         elif isinstance(raw_cb, Image.Image):
             items.append(raw_cb)
+            print(f"{SUCCESS}[+] Attached Screenshot.{RESET}")
     
-    # --- LINUX LOGIC (Requires xclip) ---
+    # --- LINUX LOGIC ---
     else:
+        # 1. Try to grab Image first
         try:
-            # Check for image in clipboard via xclip
             process = subprocess.Popen(['xclip', '-selection', 'clipboard', '-t', 'image/png', '-o'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             img_data, _ = process.communicate()
             if img_data:
                 items.append(Image.open(BytesIO(img_data)))
-                print(f"{SUCCESS}[+] Attached Image from Linux Clipboard.{RESET}")
-        except Exception:
-            pass
+                print(f"{SUCCESS}[+] Attached Image from Clipboard.{RESET}")
+        except: pass
 
-    # Generic Text Fallback (pyperclip works everywhere if xclip is installed)
+        # 2. Try to grab Files (URI List)
+        if not items:
+            try:
+                process = subprocess.Popen(['xclip', '-selection', 'clipboard', '-t', 'text/uri-list', '-o'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                uri_data, _ = process.communicate()
+                if uri_data:
+                    # Clean paths: remove 'file://', unquote URL encoding, and strip whitespace
+                    paths = [unquote(p.decode('utf-8').strip().replace('file://', '')) for p in uri_data.splitlines()]
+                    for path in paths:
+                        if os.path.isfile(path):
+                            items.extend(read_file_safe(path))
+            except: pass
+
+    # --- GENERIC TEXT FALLBACK ---
     if not items:
-        txt = pyperclip.paste()
-        if txt.strip():
-            items.append(f"\n[Clipboard Content]\n{txt}\n")
-            print(f"{SUCCESS}[+] Attached Text Fragment.{RESET}")
+        txt = pyperclip.paste().strip()
+        if txt:
+            # Check if the pasted text itself is a valid path (just in case)
+            potential_path = unquote(txt.replace('file://', ''))
+            if os.path.isfile(potential_path):
+                items.extend(read_file_safe(potential_path))
+            else:
+                items.append(f"\n[Clipboard Content]\n{txt}\n")
+                print(f"{SUCCESS}[+] Attached Text Fragment.{RESET}")
             
     return items
+
+def read_file_safe(path):
+    """Helper to read file content based on extension."""
+    filename = os.path.basename(path)
+    ext = filename.lower().split('.')[-1]
+    
+    if ext in ['png', 'jpg', 'jpeg', 'webp', 'bmp']:
+        try:
+            print(f"{SUCCESS}[+] Reading Image: {filename}{RESET}")
+            return [Image.open(path)]
+        except: return []
+    else:
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                content = f.read()
+                print(f"{SUCCESS}[+] Reading Source: {filename}{RESET}")
+                return [f"\n--- File: {filename} ---\n{content}\n"]
+        except UnicodeDecodeError:
+            print(f"{ERROR}[!] Skipping binary file: {filename}{RESET}")
+            return []
 
 def main():
     global client
