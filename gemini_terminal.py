@@ -7,24 +7,37 @@ import re
 import json
 import pyperclip
 import subprocess
+import os
 from google import genai
 from PIL import ImageGrab, Image
 from io import BytesIO
 from urllib.parse import unquote
+from pathlib import Path
 
 # --- CONFIGURATION FILENAME ---
-CONFIG_FILE = "config.json"
+CONFIG_FILE = os.path.join(str(Path.home()), ".gemini_config.json")
 
 def load_api_key():
+    """Loads the API key from a central hidden file in the Home directory."""
     if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, 'r') as f:
-            config = json.load(f)
-            return config.get("api_key")
+        try:
+            with open(CONFIG_FILE, 'r') as f:
+                config = json.load(f)
+                return config.get("api_key")
+        except (json.JSONDecodeError, IOError):
+            return None
     return os.environ.get("GOOGLE_API_KEY")
 
 def save_api_key(key):
-    with open(CONFIG_FILE, 'w') as f:
-        json.dump({"api_key": key}, f)
+    """Saves the API key to the central hidden file."""
+    try:
+        with open(CONFIG_FILE, 'w') as f:
+            json.dump({"api_key": key}, f)
+        # Set restrictive permissions on Linux (owner read/write only)
+        if os.name != 'nt':
+            os.chmod(CONFIG_FILE, 0o600)
+    except IOError as e:
+        print(f"\033[38;5;196m[!] Error saving config: {e}\033[0m")
 
 # Initialize Client
 current_key = load_api_key()
