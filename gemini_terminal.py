@@ -47,12 +47,12 @@ def print_header(model_name):
     is_pro = "pro" in model_name.lower()
     tier_label = "PAID TIER" if is_pro else "FREE TIER"
     width = 65
-    text_title = f" GEMINI PRO INTERFACE [{tier_label}]"
+    text_title = f" GEMINI TERMINAL [{tier_label}]"
     text_model = f" Model: {model_name}"
     
     print(f"{BORDER}╔" + "═" * (width - 2) + "╗")
     spaces_title = " " * (width - len(text_title) - 2)
-    print(f"{BORDER}║{RESET} {USER_NAME}GEMINI PRO INTERFACE{RESET} {SUCCESS if is_pro else INFO}[{tier_label}]{RESET}{spaces_title}{BORDER}║")
+    print(f"{BORDER}║{RESET} {USER_NAME}GEMINI TERMINAL{RESET} {SUCCESS if is_pro else INFO}[{tier_label}]{RESET}{spaces_title}{BORDER}║")
     spaces_model = " " * (width - len(text_model) - 2)
     print(f"{BORDER}║{RESET} {BORDER}Model: {AI_TEXT}{model_name}{RESET}{spaces_model}{BORDER}║")
     print(f"{BORDER}╚" + "═" * (width - 2) + f"╝{RESET}")
@@ -190,7 +190,7 @@ def main():
             resp = chat_session.send_message(parts)
             stop_ev.set()
             t.join()
-            print(f"{AI_NAME}Gemini Pro >{RESET}")
+            print(f"{AI_NAME}Gemini >{RESET}")
             print(f"{BORDER}━" * 65 + f"{RESET}")
             print(f"{AI_TEXT}{parse_markdown(resp.text.strip())}{RESET}")
             print(f"{BORDER}━" * 65 + f"{RESET}")
